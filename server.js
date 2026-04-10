@@ -69,19 +69,25 @@ io.on("connection", (socket) => {
     });
 
     // SHOOT
-    socket.on("shoot", () => {
-        const p = players[socket.id];
-        if (!p || p.reloading || p.ammo <= 0) return;
+socket.on("shoot", () => {
+    const p = players[socket.id];
+    if (!p || p.reloading || p.ammo <= 0) return;
 
-        p.ammo--;
+    const now = Date.now();
 
-        bullets.push({
-            x: p.x,
-            y: p.y,
-            angle: p.angle,
-            owner: socket.id
-        });
+    // 🔥 COOLDOWN (500ms → 2x hız = 250ms)
+    if (now - p.lastShot < 250) return;
+
+    p.lastShot = now;
+    p.ammo--;
+
+    bullets.push({
+        x: p.x,
+        y: p.y,
+        angle: p.angle,
+        owner: socket.id
     });
+});
 
     // RELOAD
     socket.on("reload", () => {
