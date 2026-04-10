@@ -38,6 +38,7 @@ io.on("connection", (socket) => {
         angle: 0,
         ammo: 10,
         maxAmmo: 10,
+        lastShot: 0,
         reloading: false,
         color,
         health: 100,
