@@ -54,10 +54,10 @@ io.on("connection", (socket) => {
         p.x += data.x;
         p.y += data.y;
 
-        if (p.x < 0) p.x = 0;
-        if (p.y < 0) p.y = 0;
-        if (p.x > MAP_WIDTH) p.x = MAP_WIDTH;
-        if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
+    if (p.x < 0) p.x = 0;
+if (p.y < 0) p.y = 0;
+if (p.x > MAP_WIDTH) p.x = MAP_WIDTH;
+if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
     });
 
    
