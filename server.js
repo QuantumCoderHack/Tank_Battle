@@ -47,18 +47,20 @@ io.on("connection", (socket) => {
     io.emit("update", { players, bullets });
 
    
-    socket.on("move", (data) => {
-        const p = players[socket.id];
-        if (!p) return;
+   socket.on("move", (data) => {
+    const p = players[socket.id];
+    if (!p) return;
 
-        p.x += data.x;
-        p.y += data.y;
+    const speed = 3;
+
+    p.x += Math.max(-speed, Math.min(speed, data.x));
+    p.y += Math.max(-speed, Math.min(speed, data.y));
 
     if (p.x < 0) p.x = 0;
-if (p.y < 0) p.y = 0;
-if (p.x > MAP_WIDTH) p.x = MAP_WIDTH;
-if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
-    });
+    if (p.y < 0) p.y = 0;
+    if (p.x > MAP_WIDTH) p.x = MAP_WIDTH;
+    if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
+});
 
    
     socket.on("aim", (angle) => {
