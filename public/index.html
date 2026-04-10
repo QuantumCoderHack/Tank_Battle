@@ -7,7 +7,6 @@
 
 <canvas id="game" width="1280" height="720"></canvas>
 
-
 <div id="gameOver" style="
     display:none;
     position:absolute;
@@ -27,14 +26,11 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+
 <script>
 const socket = io();
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-
-const shootSound = new Audio("shoot.mp3");
-const reloadSound = new Audio("reload.mp3");
-const emptySound = new Audio("empty.mp3");
 
 let players = {};
 let bullets = [];
@@ -42,65 +38,83 @@ let bullets = [];
 let keys = {};
 let mouse = { x: 0, y: 0 };
 
-
 const MAP_WIDTH = 2000;
 const MAP_HEIGHT = 2000;
 
-const mapImg = new Image();
-mapImg.src = "map.png";
+/* =========================
+   🔊 SOUND SYSTEM (FIXED)
+========================= */
+const shootSound = new Audio("/shoot.mp3");
+const reloadSound = new Audio("/reload.mp3");
+const emptySound = new Audio("/empty.mp3");
 
-let mapLoaded = false;
-mapImg.onload = () => {
-    mapLoaded = true;
-};
-
-// TUŞ BASILI TUTMA
-document.addEventListener("keydown", (e) => {
-    keys[e.key] = true;
- if (e.key === "r") {
-    socket.emit("reload");
-    reloadSound.currentTime = 0; // 🔥 başa sar
-    reloadSound.play();
+function play(sound) {
+    sound.pause();
+    sound.currentTime = 0;
+    sound.play().catch(() => {});
 }
 
+/* 🔥 Chrome autoplay fix */
+window.addEventListener("click", () => {
+    shootSound.load();
+    reloadSound.load();
+    emptySound.load();
+}, { once: true });
+
+/* =========================
+   INPUT
+========================= */
+document.addEventListener("keydown", (e) => {
+    const key = e.key.toLowerCase();
+    keys[key] = true;
+
+    if (key === "r") {
+        socket.emit("reload");
+        play(reloadSound);
+    }
+
+    if (["w","a","s","d"].includes(key)) {
+        e.preventDefault();
+    }
 });
 
 document.addEventListener("keyup", (e) => {
-    keys[e.key] = false;
+    keys[e.key.toLowerCase()] = false;
 });
 
-// MOUSE CLICK
+/* =========================
+   MOUSE
+========================= */
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
+
 canvas.addEventListener("click", () => {
     let me = players[socket.id];
     if (!me) return;
 
+    socket.emit("shoot");
+
     if (me.ammo > 0) {
-        socket.emit("shoot");
-        shootSound.currentTime = 0;
-        shootSound.play();
+        play(shootSound);
     } else {
-        emptySound.currentTime = 0;
-        emptySound.play();
+        play(emptySound);
     }
 });
-// MOUSE TAKİP
-canvas.addEventListener("mousemove", (e) => {
-    mouse.x = e.offsetX;
-    mouse.y = e.offsetY;
-});
 
-// ATEŞ
-canvas.addEventListener("click", () => {
-    socket.emit("shoot");
-});
-
-// SERVER VERİ
+/* =========================
+   SERVER DATA
+========================= */
 socket.on("update", (data) => {
-    players = data.players;
-    bullets = data.bullets;
+    players = data.players || {};
+    bullets = data.bullets || [];
 });
 
-// HAREKET + NİŞAN
+/* =========================
+   UPDATE
+========================= */
 function update() {
     let dx = 0;
     let dy = 0;
@@ -110,37 +124,45 @@ function update() {
     if (keys["a"]) dx -= 3;
     if (keys["d"]) dx += 3;
 
-    socket.emit("move", {x: dx, y: dy});
+    socket.emit("move", { x: dx, y: dy });
 
-let me = players[socket.id];
-if (me) {
-    let angle = Math.atan2(mouse.y - me.y, mouse.x - me.x);
-    socket.emit("aim", angle);
-
-    // 🔥 CLIENT TARAFI SINIR (görsel taşmayı önler)
-    if (me.x < 0) me.x = 0;
-    if (me.y < 0) me.y = 0;
-    if (me.x > MAP_WIDTH) me.x = MAP_WIDTH;
-    if (me.y > MAP_HEIGHT) me.y = MAP_HEIGHT;
+    let me = players[socket.id];
+    if (me) {
+        let angle = Math.atan2(mouse.y - me.y, mouse.x - me.x);
+        socket.emit("aim", angle);
+    }
 }
 
-    
-}function drawPlayer(p) {
+/* =========================
+   DRAW PLAYER (FIXED LOOK)
+========================= */
+function drawPlayer(p) {
     if (!p) return;
 
     ctx.save();
-    ctx.translate(Math.round(p.x), Math.round(p.y));
+    ctx.translate(p.x, p.y);
     ctx.rotate(p.angle || 0);
 
-    ctx.fillStyle = p.color || "blue"; // 🔥 artık player.color kullanılıyor
-    ctx.fillRect(-10, -10, 20, 20);
+    // body
+    ctx.fillStyle = p.color || "blue";
+    ctx.fillRect(-10, -8, 20, 16);
 
+    // head
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(0, -12, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // gun
     ctx.fillStyle = "black";
-    ctx.fillRect(0, -2, 15, 4);
+    ctx.fillRect(5, -2, 14, 4);
 
     ctx.restore();
 }
-// MERMİ
+
+/* =========================
+   BULLETS
+========================= */
 function drawBullets() {
     ctx.fillStyle = "red";
     bullets.forEach(b => {
@@ -148,23 +170,33 @@ function drawBullets() {
         ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
         ctx.fill();
     });
-}function drawUI(me) {
+}
+
+/* =========================
+   UI
+========================= */
+function drawUI() {
+    let me = players[socket.id];
     if (!me) return;
 
-    // Can barı arka plan
     ctx.fillStyle = "gray";
     ctx.fillRect(20, 20, 200, 20);
 
-    // Can barı doluluk
-    let healthWidth = 200 * (me.health / me.maxHealth);
     ctx.fillStyle = "green";
-    ctx.fillRect(20, 20, healthWidth, 20);
+    ctx.fillRect(20, 20, 200 * (me.health / me.maxHealth), 20);
 
-    // Yüzde ve tam can
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "black";
     ctx.font = "16px Arial";
-    ctx.fillText(`HP: ${Math.round(me.health)} / ${me.maxHealth} (${Math.round((me.health/me.maxHealth)*100)}%)`, 230, 35);
+    ctx.fillText(
+        `HP: ${me.health} / ${me.maxHealth}`,
+        230,
+        35
+    );
 }
+
+/* =========================
+   DRAW LOOP
+========================= */
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -173,21 +205,23 @@ function draw() {
     }
 
     drawBullets();
-
-    let me = players[socket.id];
-    drawUI(me); // sol üst can barı ve sayısı
+    drawUI();
 }
 
-// GAME LOOP
-function gameLoop() {
+/* =========================
+   GAME LOOP
+========================= */
+function loop() {
     update();
     draw();
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(loop);
 }
 
-gameLoop();
+loop();
 
-
+/* =========================
+   GAME OVER
+========================= */
 socket.on("gameOver", () => {
     document.getElementById("gameOver").style.display = "block";
 });
