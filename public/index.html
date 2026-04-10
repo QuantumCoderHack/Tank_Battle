@@ -140,22 +140,14 @@ function drawPlayer(p) {
     if (!p) return;
 
     ctx.save();
-    ctx.translate(p.x, p.y);
+    ctx.translate(Math.round(p.x), Math.round(p.y));
     ctx.rotate(p.angle || 0);
 
-    // body
-    ctx.fillStyle = p.color || "blue";
-    ctx.fillRect(-10, -8, 20, 16);
+    ctx.fillStyle = p.color || "blue"; // 🔥 artık player.color kullanılıyor
+    ctx.fillRect(-10, -10, 20, 20);
 
-    // head
-    ctx.fillStyle = "white";
-    ctx.beginPath();
-    ctx.arc(0, -12, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // gun
     ctx.fillStyle = "black";
-    ctx.fillRect(5, -2, 14, 4);
+    ctx.fillRect(0, -2, 15, 4);
 
     ctx.restore();
 }
