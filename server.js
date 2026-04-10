@@ -5,7 +5,7 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 
-
+// ✅ Render + CORS güvenli Socket.IO
 const io = new Server(server, {
     cors: {
         origin: "*"
@@ -24,10 +24,10 @@ const colors = ["blue", "green", "red", "purple", "orange", "yellow", "black", "
 
 io.on("connection", (socket) => {
 
-   
+    // ilk veri gönderimi
     socket.emit("update", { players, bullets });
 
-   
+    // spawn
     const spawnX = Math.floor(Math.random() * MAP_WIDTH);
     const spawnY = Math.floor(Math.random() * MAP_HEIGHT);
     const color = colors[Math.floor(Math.random() * colors.length)];
@@ -46,7 +46,7 @@ io.on("connection", (socket) => {
 
     io.emit("update", { players, bullets });
 
-   
+    // MOVE
     socket.on("move", (data) => {
         const p = players[socket.id];
         if (!p) return;
@@ -60,14 +60,14 @@ io.on("connection", (socket) => {
         if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
     });
 
-   
+    // AIM
     socket.on("aim", (angle) => {
         const p = players[socket.id];
         if (!p) return;
         p.angle = angle;
     });
 
-   
+    // SHOOT
     socket.on("shoot", () => {
         const p = players[socket.id];
         if (!p || p.reloading || p.ammo <= 0) return;
@@ -82,7 +82,7 @@ io.on("connection", (socket) => {
         });
     });
 
-   
+    // RELOAD
     socket.on("reload", () => {
         const p = players[socket.id];
         if (!p || p.reloading || p.ammo === p.maxAmmo) return;
@@ -97,7 +97,7 @@ io.on("connection", (socket) => {
         }, 1000);
     });
 
- 
+    // DISCONNECT
     socket.on("disconnect", () => {
         delete players[socket.id];
         bullets = bullets.filter(b => b.owner !== socket.id);
@@ -105,17 +105,17 @@ io.on("connection", (socket) => {
 });
 
 
-
+// 🔥 SAFE GAME LOOP (splice bug fix dahil düzeltildi)
 setInterval(() => {
 
-   
+    // bullets güvenli update (reverse loop → crash fix)
     for (let i = bullets.length - 1; i >= 0; i--) {
         const b = bullets[i];
 
         b.x += Math.cos(b.angle) * 5;
         b.y += Math.sin(b.angle) * 5;
 
-
+        // sınır dışı
         if (b.x < 0 || b.y < 0 || b.x > MAP_WIDTH || b.y > MAP_HEIGHT) {
             bullets.splice(i, 1);
             continue;
@@ -150,7 +150,7 @@ setInterval(() => {
 }, 50);
 
 
-
+// 🔥 RENDER FIX: 0.0.0.0 binding zorunlu
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, "0.0.0.0", () => {
