@@ -76,7 +76,7 @@ socket.on("shoot", () => {
     const now = Date.now();
 
     // 🔥 COOLDOWN (500ms → 2x hız = 250ms)
-    if (now - p.lastShot < 250) return;
+    if (now - p.lastShot < 100) return;
 
     p.lastShot = now;
     p.ammo--;
