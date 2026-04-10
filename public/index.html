@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Savaş Oyunu</title>
+</head>
+<body>
+
+<canvas id="game" width="1280" height="720"></canvas>
+
+
+<div id="gameOver" style="
+    display:none;
+    position:absolute;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background-color:rgba(0,0,0,0.7);
+    color:white;
+    font-size:48px;
+    text-align:center;
+    padding-top:200px;
+    z-index:10;
+">
+    Oyun Bitti! <br>
+    Sayfayı yenileyip tekrar deneyin
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const shootSound = new Audio("shoot.mp3");
+const reloadSound = new Audio("reload.mp3");
+const emptySound = new Audio("empty.mp3");
+
+let players = {};
+let bullets = [];
+
+let keys = {};
+let mouse = { x: 0, y: 0 };
+
+
+const MAP_WIDTH = 2000;
+const MAP_HEIGHT = 2000;
+
+const mapImg = new Image();
+mapImg.src = "map.png";
+
+let mapLoaded = false;
+mapImg.onload = () => {
+    mapLoaded = true;
+};
+
+// TUŞ BASILI TUTMA
+document.addEventListener("keydown", (e) => {
+    keys[e.key] = true;
+ if (e.key === "r") {
+    socket.emit("reload");
+    reloadSound.currentTime = 0; // 🔥 başa sar
+    reloadSound.play();
+}
+
+});
+
+document.addEventListener("keyup", (e) => {
+    keys[e.key] = false;
+});
+
+// MOUSE CLICK
+canvas.addEventListener("click", () => {
+    let me = players[socket.id];
+    if (!me) return;
+
+    if (me.ammo > 0) {
+        socket.emit("shoot");
+        shootSound.currentTime = 0;
+        shootSound.play();
+    } else {
+        emptySound.currentTime = 0;
+        emptySound.play();
+    }
+});
+// MOUSE TAKİP
+canvas.addEventListener("mousemove", (e) => {
+    mouse.x = e.offsetX;
+    mouse.y = e.offsetY;
+});
+
+// ATEŞ
+canvas.addEventListener("click", () => {
+    socket.emit("shoot");
+});
+
+// SERVER VERİ
+socket.on("update", (data) => {
+    players = data.players;
+    bullets = data.bullets;
+});
+
+// HAREKET + NİŞAN
+function update() {
+    let dx = 0;
+    let dy = 0;
+
+    if (keys["w"]) dy -= 3;
+    if (keys["s"]) dy += 3;
+    if (keys["a"]) dx -= 3;
+    if (keys["d"]) dx += 3;
+
+    socket.emit("move", {x: dx, y: dy});
+
+let me = players[socket.id];
+if (me) {
+    let angle = Math.atan2(mouse.y - me.y, mouse.x - me.x);
+    socket.emit("aim", angle);
+
+    // 🔥 CLIENT TARAFI SINIR (görsel taşmayı önler)
+    if (me.x < 0) me.x = 0;
+    if (me.y < 0) me.y = 0;
+    if (me.x > MAP_WIDTH) me.x = MAP_WIDTH;
+    if (me.y > MAP_HEIGHT) me.y = MAP_HEIGHT;
+}
+
+    
+}function drawPlayer(p) {
+    if (!p) return;
+
+    ctx.save();
+    ctx.translate(Math.round(p.x), Math.round(p.y));
+    ctx.rotate(p.angle || 0);
+
+    ctx.fillStyle = p.color || "blue"; // 🔥 artık player.color kullanılıyor
+    ctx.fillRect(-10, -10, 20, 20);
+
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, -2, 15, 4);
+
+    ctx.restore();
+}
+// MERMİ
+function drawBullets() {
+    ctx.fillStyle = "red";
+    bullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    });
+}function drawUI(me) {
+    if (!me) return;
+
+    // Can barı arka plan
+    ctx.fillStyle = "gray";
+    ctx.fillRect(20, 20, 200, 20);
+
+    // Can barı doluluk
+    let healthWidth = 200 * (me.health / me.maxHealth);
+    ctx.fillStyle = "green";
+    ctx.fillRect(20, 20, healthWidth, 20);
+
+    // Yüzde ve tam can
+    ctx.fillStyle = "white";
+    ctx.font = "16px Arial";
+    ctx.fillText(`HP: ${Math.round(me.health)} / ${me.maxHealth} (${Math.round((me.health/me.maxHealth)*100)}%)`, 230, 35);
+}
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let id in players) {
+        drawPlayer(players[id]);
+    }
+
+    drawBullets();
+
+    let me = players[socket.id];
+    drawUI(me); // sol üst can barı ve sayısı
+}
+
+// GAME LOOP
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+
+socket.on("gameOver", () => {
+    document.getElementById("gameOver").style.display = "block";
+});
+</script>
+
+</body>
+</html>
