@@ -1,7 +1,7 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { exec } = require("child_process");
+
 
 const app = express();
 const server = http.createServer(app);
@@ -19,10 +19,10 @@ let bullets = [];
 
 io.on("connection", (socket) => {
 
-    // 🔥 Random renk ve random spawn
+  
     socket.emit("update", { players, bullets });
 
-    // Random renk ve random spawn
+   
    const spawnX = Math.floor(Math.random() * MAP_WIDTH);
     const spawnY = Math.floor(Math.random() * MAP_HEIGHT);
     const color = colors[Math.floor(Math.random() * colors.length)];
@@ -39,10 +39,10 @@ io.on("connection", (socket) => {
         maxHealth: 100
     };
 
-    // Sonrasında tüm client'lara yeni oyuncuyu bildir
+  
     io.emit("update", { players, bullets });
 
-    // HAREKET
+
     socket.on("move", (data) => {
         let p = players[socket.id];
         if (!p) return;
@@ -56,7 +56,7 @@ io.on("connection", (socket) => {
         if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
     });
 
-    // NİŞAN
+    
     socket.on("aim", (angle) => {
         let p = players[socket.id];
         if (!p) return;
@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
         p.angle = angle;
     });
 
-    // ATEŞ
+   
     socket.on("shoot", () => {
         let p = players[socket.id];
         if (!p || p.reloading || p.ammo <= 0) return;
@@ -79,7 +79,7 @@ io.on("connection", (socket) => {
         });
     });
 
-    // RELOAD
+  
     socket.on("reload", () => {
         let p = players[socket.id];
         if (!p || p.reloading || p.ammo === p.maxAmmo) return;
@@ -93,17 +93,17 @@ io.on("connection", (socket) => {
         }, 1000);
     });
 
-    // ÇIKIŞ
+   
      socket.on("disconnect", () => {
         delete players[socket.id];
         bullets = bullets.filter(b => b.owner !== socket.id);
     });
 });
 
-// OYUN LOOP
+
 setInterval(() => {
 
- // BULLET LOOP içinde can düşme
+
 bullets.forEach((b, i) => {
     b.x += Math.cos(b.angle) * 5;
     b.y += Math.sin(b.angle) * 5;
@@ -125,11 +125,11 @@ bullets.forEach((b, i) => {
             p.health -= 10;
 
             if (p.health <= 0) {
-                // 0 altına düştü, oyundan çıkar ve client’a mesaj gönder
+            
                 io.to(id).emit("gameOver");
                 delete players[id];
 
-                // mermileri de temizle
+                
                 bullets = bullets.filter(bullet => bullet.owner !== id);
             }
 
@@ -142,9 +142,8 @@ bullets.forEach((b, i) => {
     io.emit("update", { players, bullets });
 
 }, 50);
+const PORT = process.env.PORT || 3000;
 
-// SERVER BAŞLAT
-server.listen(3000, () => {
-    console.log("Server çalışıyor: http://localhost:3000");
-    exec("start http://localhost:3000");
+server.listen(PORT, () => {
+    console.log("Server çalışıyor, port: " + PORT);
 });
