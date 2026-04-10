@@ -33,7 +33,7 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 
 let players = {};
-let bullets = {};
+let bullets = [];
 
 let keys = {};
 let mouse = { x: 0, y: 0 };
@@ -41,35 +41,40 @@ let mouse = { x: 0, y: 0 };
 const MAP_WIDTH = 2000;
 const MAP_HEIGHT = 2000;
 
-// INPUT
+// 🔥 FIX 1: KEY INPUT (100% reliable)
 document.addEventListener("keydown", (e) => {
     keys[e.key.toLowerCase()] = true;
 
     if (e.key.toLowerCase() === "r") {
         socket.emit("reload");
     }
+
+    e.preventDefault();
 });
 
 document.addEventListener("keyup", (e) => {
     keys[e.key.toLowerCase()] = false;
 });
 
+// 🔥 FIX 2: MOUSE
 canvas.addEventListener("mousemove", (e) => {
-    mouse.x = e.offsetX;
-    mouse.y = e.offsetY;
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
 });
 
+// SHOOT
 canvas.addEventListener("click", () => {
     socket.emit("shoot");
 });
 
 // SERVER DATA
 socket.on("update", (data) => {
-    players = data.players;
-    bullets = data.bullets;
+    players = data.players || {};
+    bullets = data.bullets || [];
 });
 
-// UPDATE LOOP
+// UPDATE
 function update() {
     let dx = 0;
     let dy = 0;
@@ -97,9 +102,6 @@ function drawPlayer(p) {
     ctx.fillStyle = p.color || "blue";
     ctx.fillRect(-10, -10, 20, 20);
 
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, -2, 15, 4);
-
     ctx.restore();
 }
 
@@ -114,7 +116,8 @@ function drawBullets() {
 }
 
 // UI
-function drawUI(me) {
+function drawUI() {
+    let me = players[socket.id];
     if (!me) return;
 
     ctx.fillStyle = "gray";
@@ -122,9 +125,6 @@ function drawUI(me) {
 
     ctx.fillStyle = "green";
     ctx.fillRect(20, 20, 200 * (me.health / me.maxHealth), 20);
-
-    ctx.fillStyle = "white";
-    ctx.fillText(`HP: ${me.health}`, 230, 35);
 }
 
 // DRAW
@@ -136,8 +136,7 @@ function draw() {
     }
 
     drawBullets();
-
-    drawUI(players[socket.id]);
+    drawUI();
 }
 
 // LOOP
@@ -154,6 +153,5 @@ socket.on("gameOver", () => {
     document.getElementById("gameOver").style.display = "block";
 });
 </script>
-
 </body>
 </html>
