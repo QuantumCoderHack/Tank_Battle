@@ -2,10 +2,15 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
-
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+
+
+const io = new Server(server, {
+    cors: {
+        origin: "*"
+    }
+});
 
 const MAP_WIDTH = 1280;
 const MAP_HEIGHT = 720;
@@ -15,15 +20,15 @@ app.use(express.static("public"));
 let players = {};
 let bullets = [];
 
- const colors = ["blue", "green", "red", "purple", "orange", "yellow","black","purple","aqua","white"];
+const colors = ["blue", "green", "red", "purple", "orange", "yellow", "black", "aqua", "white"];
 
 io.on("connection", (socket) => {
 
-  
+   
     socket.emit("update", { players, bullets });
 
    
-   const spawnX = Math.floor(Math.random() * MAP_WIDTH);
+    const spawnX = Math.floor(Math.random() * MAP_WIDTH);
     const spawnY = Math.floor(Math.random() * MAP_HEIGHT);
     const color = colors[Math.floor(Math.random() * colors.length)];
 
@@ -34,17 +39,16 @@ io.on("connection", (socket) => {
         ammo: 10,
         maxAmmo: 10,
         reloading: false,
-        color: color,
+        color,
         health: 100,
         maxHealth: 100
     };
 
-  
     io.emit("update", { players, bullets });
 
-
+   
     socket.on("move", (data) => {
-        let p = players[socket.id];
+        const p = players[socket.id];
         if (!p) return;
 
         p.x += data.x;
@@ -56,17 +60,16 @@ io.on("connection", (socket) => {
         if (p.y > MAP_HEIGHT) p.y = MAP_HEIGHT;
     });
 
-    
+   
     socket.on("aim", (angle) => {
-        let p = players[socket.id];
+        const p = players[socket.id];
         if (!p) return;
-
         p.angle = angle;
     });
 
    
     socket.on("shoot", () => {
-        let p = players[socket.id];
+        const p = players[socket.id];
         if (!p || p.reloading || p.ammo <= 0) return;
 
         p.ammo--;
@@ -79,71 +82,77 @@ io.on("connection", (socket) => {
         });
     });
 
-  
+   
     socket.on("reload", () => {
-        let p = players[socket.id];
+        const p = players[socket.id];
         if (!p || p.reloading || p.ammo === p.maxAmmo) return;
 
         p.reloading = true;
+
         setTimeout(() => {
-            let p = players[socket.id];
-            if (!p) return;
-            p.ammo = p.maxAmmo;
-            p.reloading = false;
+            const p2 = players[socket.id];
+            if (!p2) return;
+            p2.ammo = p2.maxAmmo;
+            p2.reloading = false;
         }, 1000);
     });
 
-   
-     socket.on("disconnect", () => {
+ 
+    socket.on("disconnect", () => {
         delete players[socket.id];
         bullets = bullets.filter(b => b.owner !== socket.id);
     });
 });
 
 
+
 setInterval(() => {
 
+   
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
 
-bullets.forEach((b, i) => {
-    b.x += Math.cos(b.angle) * 5;
-    b.y += Math.sin(b.angle) * 5;
+        b.x += Math.cos(b.angle) * 5;
+        b.y += Math.sin(b.angle) * 5;
 
-    if (b.x < 0 || b.y < 0 || b.x > MAP_WIDTH || b.y > MAP_HEIGHT) {
-        bullets.splice(i, 1);
-        return;
-    }
 
-    for (let id in players) {
-        let p = players[id];
-        if (!p) continue;
-        if (b.owner === id) continue;
-
-        let dx = p.x - b.x;
-        let dy = p.y - b.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 15) {
-            p.health -= 10;
-
-            if (p.health <= 0) {
-            
-                io.to(id).emit("gameOver");
-                delete players[id];
-
-                
-                bullets = bullets.filter(bullet => bullet.owner !== id);
-            }
-
+        if (b.x < 0 || b.y < 0 || b.x > MAP_WIDTH || b.y > MAP_HEIGHT) {
             bullets.splice(i, 1);
-            break;
+            continue;
+        }
+
+        for (let id in players) {
+            const p = players[id];
+            if (!p) continue;
+            if (b.owner === id) continue;
+
+            const dx = p.x - b.x;
+            const dy = p.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 15) {
+                p.health -= 10;
+
+                if (p.health <= 0) {
+                    io.to(id).emit("gameOver");
+                    delete players[id];
+                    bullets = bullets.filter(bb => bb.owner !== id);
+                }
+
+                bullets.splice(i, 1);
+                break;
+            }
         }
     }
-});
 
     io.emit("update", { players, bullets });
 
 }, 50);
+
+
+
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, () => {
-    console.log("Server çalışıyor, port: " + PORT);
+server.listen(PORT, "0.0.0.0", () => {
+    console.log("Server çalışıyor, port:", PORT);
 });
